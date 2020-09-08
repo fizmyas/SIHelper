@@ -4,9 +4,13 @@
 #include <QMainWindow>
 #include "appealwindow.h"
 #include "settingswindow.h"
+#ifdef _NETWORK_GAME_
+#include "serversettings.h"
+#endif // _NETWORK_GAME_
 #include <QFile>
 #include <QList>
 #include <QPushButton>
+#include <QTimer>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -22,60 +26,51 @@ public:
 
 private slots:
     void on_exitButton_clicked();
-
     void on_settingsButton_clicked();
-
     void on_appealButton_clicked();
-
     void on_startGameButton_clicked();
-
     void on_finishGameButton_clicked();
-
     void on_nextQuestionButton_clicked();
-
     void on_plus1Button_clicked();
-
     void on_minus1Button_clicked();
-
     void on_plus2Button_clicked();
-
     void on_minus2Button_clicked();
-
     void on_plus3Button_clicked();
-
     void on_minus3Button_clicked();
-
     void on_plus4Button_clicked();
-
     void on_minus4Button_clicked();
-
+    void on_startTimerButton_clicked();
     void appeal_apply(int type, int numPlayer);
-
     void appeal_reject(int numPlayer);
-
     void setSettings();
+    void updateGlobalTimer();
+    void signalTimeout();
+#ifdef _NETWORK_GAME_
+    void newAnswer(int playerNumber);
+    void textAnswer(QString answer);
+#endif // _NETWORK_GAME_
 
 private:
     Ui::MainWindow *ui;
     AppealWindow *appealWindowExample;
     settingsWindow *settingsWindowExample;
-
+#ifdef _NETWORK_GAME_
+    serverSettings *networkWindowExample;
+#endif // _NETWORK_GAME_
     QList<QPushButton*> plus_minus_buttons;
+
+    struct question
+    {
+        int value;
+        QString textQuestion;
+        QString answer;
+    };
 
     struct theme
     {
         QString title;
         QString comment;
-        QString Q10;
-        QString Q20;
-        QString Q30;
-        QString Q40;
-        QString Q50;
-        QString A10;
-        QString A20;
-        QString A30;
-        QString A40;
-        QString A50;
+        question questions[5];
     };
 
     struct paket
@@ -87,41 +82,51 @@ private:
 
     int *current_question;
     QString *protocol;
-    unsigned int playersQuantity;
 
     enum stage
     {
-        STAGE_BEGIN = 0,
-        STAGE_ABSTRACT,
+        STAGE_ABSTRACT = 0,
         STAGE_THEME,
-        STAGE_Q10,
-        STAGE_A10,
-        STAGE_Q20,
-        STAGE_A20,
-        STAGE_Q30,
-        STAGE_A30,
-        STAGE_Q40,
-        STAGE_A40,
-        STAGE_Q50,
-        STAGE_A50,
+        STAGE_QUESTION,
+        STAGE_ANSWER,
         STAGE_FINISH
     };
 
     QFile questionsFile;
     QFile exportFile;
     paket fullPaket;
+#ifdef _NETWORK_GAME_
+    bool isNetworkGame;
+#endif // _NETWORK_GAME_
     bool isGamePlaying;
     stage current_stage;
     int current_theme_number;
+    int currentQuestionNumber;
     bool isAppealsLimited;
+    unsigned int playersQuantity;
     int *appealsUsersQuantity;
     int *answerDirection;
     int answerQuantity;
+    QTimer waitSignalTimer;
+    QTimer waitAnswerTimer;
+    int maxWaitSignal;
+    int maxWaitAnswer;
+#ifdef _NETWORK_GAME_
+    int isAnswerInwriting;
+#endif // _NETWORK_GAME_
+    bool falstart; // произошёл ли фальстарт
+    bool isResignal;
+    bool isFalstart; // игра с фальстартами или без
+    bool isQA; // показывать вопросы и ответы одновременно
+    int countWrongAnswers;
 
     void setGraphics();
     void parseQuestionsFile(QFile *file);
     void setZero(int *array);
     void appendLog(QString *log, int *question);
     void updateDisplay(int usernum, int old_value);
+#ifdef _NETWORK_GAME_
+    void wrongAnswer();
+#endif // _NETWORK_GAME_
 };
 #endif // MAINWINDOW_H

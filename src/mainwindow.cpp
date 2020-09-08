@@ -7,9 +7,26 @@
 
 using namespace mainwindowStrings;
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+MainWindow::MainWindow(QWidget *parent):
+    QMainWindow(parent),
+    ui(new Ui::MainWindow),
+#ifdef _NETWORK_GAME_
+    isNetworkGame(false),
+#endif // _NETWORK_GAME_
+    isGamePlaying(false),
+    isAppealsLimited(false),
+    playersQuantity(0),
+    answerQuantity (0),
+    maxWaitSignal(0),
+    maxWaitAnswer(0),
+#ifdef _NETWORK_GAME_
+    isAnswerInwriting(0),
+#endif // _NETWORK_GAME_
+    falstart(true),
+    isResignal(false),
+    isFalstart(false),
+    isQA(false),
+    countWrongAnswers(0)
 {
     ui->setupUi(this);
     setWindowIcon(QIcon(":/icons/mainSI.png"));
@@ -34,17 +51,17 @@ MainWindow::MainWindow(QWidget *parent)
     appealWindowExample->setWindowModality(Qt::WindowModal);
     settingsWindowExample = new settingsWindow();
     settingsWindowExample->setWindowModality(Qt::WindowModal);
+#ifdef _NETWORK_GAME_
+    networkWindowExample = new serverSettings();
+    networkWindowExample->setWindowModality(Qt::WindowModal);
+#endif // _NETWORK_GAME_
     current_question = new int[4];
     protocol = new QString[4];
     appealsUsersQuantity = new int[4];
     answerDirection = new int[4];
-    isAppealsLimited = false;
     setZero(current_question);
     setZero(answerDirection);
     questionsFile.setFileName("");
-    isGamePlaying = false;
-    playersQuantity = 0;
-    answerQuantity = 0;
     plus_minus_buttons.append(ui->plus1Button);
     plus_minus_buttons.append(ui->plus2Button);
     plus_minus_buttons.append(ui->plus3Button);
@@ -58,12 +75,22 @@ MainWindow::MainWindow(QWidget *parent)
     QObject::connect(appealWindowExample, SIGNAL(appeal_apply(int, int)), this, SLOT(appeal_apply(int, int)));
     QObject::connect(appealWindowExample, SIGNAL(appeal_reject(int)), this, SLOT(appeal_reject(int)));
     QObject::connect(settingsWindowExample, SIGNAL(settingsIsSet()), this, SLOT(setSettings()));
+#ifdef _NETWORK_GAME_
+    QObject::connect(networkWindowExample, SIGNAL(settingsIsSet()), this, SLOT(setSettings()));
+    QObject::connect(networkWindowExample, SIGNAL(newAnswerSignal(int)), this, SLOT(newAnswer(int)));
+    QObject::connect(networkWindowExample, SIGNAL(textAnswerSignal(QString)), this, SLOT(textAnswer(QString)));
+    QObject::connect(settingsWindowExample, SIGNAL(startServer()), networkWindowExample, SLOT(show()));
+#endif // _NETWORK_GAME_
+    QObject::connect(&waitSignalTimer, SIGNAL(timeout()), this, SLOT(signalTimeout()));
 }
 
 MainWindow::~MainWindow()
 {
     delete appealWindowExample;
     delete settingsWindowExample;
+#ifdef _NETWORK_GAME_
+    delete networkWindowExample;
+#endif
     delete[] answerDirection;
     delete[] appealsUsersQuantity;
     delete[] current_question;
@@ -93,9 +120,27 @@ void MainWindow::on_plus1Button_clicked()
         ui->plus1Button->setDisabled(true);
         ui->minus1Button->setDisabled(true);
         current_question[0] = 1;
+#ifdef _NETWORK_GAME_
+        if (!isNetworkGame)
+        {
+            answerQuantity++;
+            answerDirection[answerQuantity-1] = 1;
+        }
+#else
         answerQuantity++;
         answerDirection[answerQuantity-1] = 1;
+#endif // _NETWORK_GAME_
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendCorrectnessToPlayer(1, MSG_ANSWER_CORRECT());
+        networkWindowExample->sendCurrentResultsToPlayers(ui->sum1_Browser->toPlainText().toInt(),
+                                                          ui->sum2_Browser->toPlainText().toInt(),
+                                                          ui->sum3_Browser->toPlainText().toInt(),
+                                                          ui->sum4_Browser->toPlainText().toInt());
+    }
+#endif // _NETWORK_GAME_
 }
 
 void MainWindow::on_minus1Button_clicked()
@@ -115,9 +160,29 @@ void MainWindow::on_minus1Button_clicked()
         ui->plus1Button->setDisabled(true);
         ui->minus1Button->setDisabled(true);
         current_question[0] = -1;
+#ifdef _NETWORK_GAME_
+        if (!isNetworkGame)
+        {
+            answerQuantity++;
+            answerDirection[answerQuantity-1] = 1;
+        }
+#else
         answerQuantity++;
         answerDirection[answerQuantity-1] = 1;
+#endif // _NETWORK_GAME_
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendCorrectnessToPlayer(1, MSG_ANSWER_INCORRECT());
+        networkWindowExample->sendCurrentResultsToPlayers(ui->sum1_Browser->toPlainText().toInt(),
+                                                          ui->sum2_Browser->toPlainText().toInt(),
+                                                          ui->sum3_Browser->toPlainText().toInt(),
+                                                          ui->sum4_Browser->toPlainText().toInt());
+        wrongAnswer();
+
+    }
+#endif // _NETWORK_GAME_
 }
 
 void MainWindow::on_plus2Button_clicked()
@@ -137,9 +202,27 @@ void MainWindow::on_plus2Button_clicked()
         ui->plus2Button->setDisabled(true);
         ui->minus2Button->setDisabled(true);
         current_question[1] = 1;
+#ifdef _NETWORK_GAME_
+        if (!isNetworkGame)
+        {
+            answerQuantity++;
+            answerDirection[answerQuantity-1] = 2;
+        }
+#else
         answerQuantity++;
-        answerDirection[answerQuantity-1] = 2;
+        answerDirection[answerQuantity-1] = 1;
+#endif // _NETWORK_GAME_
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendCorrectnessToPlayer(2, MSG_ANSWER_CORRECT());
+        networkWindowExample->sendCurrentResultsToPlayers(ui->sum1_Browser->toPlainText().toInt(),
+                                                          ui->sum2_Browser->toPlainText().toInt(),
+                                                          ui->sum3_Browser->toPlainText().toInt(),
+                                                          ui->sum4_Browser->toPlainText().toInt());
+    }
+#endif // _NETWORK_GAME_
 }
 
 void MainWindow::on_minus2Button_clicked()
@@ -159,9 +242,28 @@ void MainWindow::on_minus2Button_clicked()
         ui->plus2Button->setDisabled(true);
         ui->minus2Button->setDisabled(true);
         current_question[1] = -1;
+#ifdef _NETWORK_GAME_
+        if (!isNetworkGame)
+        {
+            answerQuantity++;
+            answerDirection[answerQuantity-1] = 2;
+        }
+#else
         answerQuantity++;
-        answerDirection[answerQuantity-1] = 2;
+        answerDirection[answerQuantity-1] = 1;
+#endif // _NETWORK_GAME_
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendCorrectnessToPlayer(2, MSG_ANSWER_INCORRECT());
+        networkWindowExample->sendCurrentResultsToPlayers(ui->sum1_Browser->toPlainText().toInt(),
+                                                          ui->sum2_Browser->toPlainText().toInt(),
+                                                          ui->sum3_Browser->toPlainText().toInt(),
+                                                          ui->sum4_Browser->toPlainText().toInt());
+        wrongAnswer();
+    }
+#endif // _NETWORK_GAME_
 }
 
 void MainWindow::on_plus3Button_clicked()
@@ -181,9 +283,27 @@ void MainWindow::on_plus3Button_clicked()
         ui->plus3Button->setDisabled(true);
         ui->minus3Button->setDisabled(true);
         current_question[2] = 1;
+#ifdef _NETWORK_GAME_
+        if (!isNetworkGame)
+        {
+            answerQuantity++;
+            answerDirection[answerQuantity-1] = 3;
+        }
+#else
         answerQuantity++;
-        answerDirection[answerQuantity-1] = 3;
+        answerDirection[answerQuantity-1] = 1;
+#endif // _NETWORK_GAME_
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendCorrectnessToPlayer(3, MSG_ANSWER_CORRECT());
+        networkWindowExample->sendCurrentResultsToPlayers(ui->sum1_Browser->toPlainText().toInt(),
+                                                          ui->sum2_Browser->toPlainText().toInt(),
+                                                          ui->sum3_Browser->toPlainText().toInt(),
+                                                          ui->sum4_Browser->toPlainText().toInt());
+    }
+#endif // _NETWORK_GAME_
 }
 
 void MainWindow::on_minus3Button_clicked()
@@ -203,9 +323,28 @@ void MainWindow::on_minus3Button_clicked()
         ui->plus3Button->setDisabled(true);
         ui->minus3Button->setDisabled(true);
         current_question[2] = -1;
+#ifdef _NETWORK_GAME_
+        if (!isNetworkGame)
+        {
+            answerQuantity++;
+            answerDirection[answerQuantity-1] = 3;
+        }
+#else
         answerQuantity++;
-        answerDirection[answerQuantity-1] = 3;
+        answerDirection[answerQuantity-1] = 1;
+#endif // _NETWORK_GAME_
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendCorrectnessToPlayer(3, MSG_ANSWER_INCORRECT());
+        networkWindowExample->sendCurrentResultsToPlayers(ui->sum1_Browser->toPlainText().toInt(),
+                                                          ui->sum2_Browser->toPlainText().toInt(),
+                                                          ui->sum3_Browser->toPlainText().toInt(),
+                                                          ui->sum4_Browser->toPlainText().toInt());
+        wrongAnswer();
+    }
+#endif // _NETWORK_GAME_
 }
 
 void MainWindow::on_plus4Button_clicked()
@@ -225,9 +364,27 @@ void MainWindow::on_plus4Button_clicked()
         ui->plus4Button->setDisabled(true);
         ui->minus4Button->setDisabled(true);
         current_question[3] = 1;
+#ifdef _NETWORK_GAME_
+        if (!isNetworkGame)
+        {
+            answerQuantity++;
+            answerDirection[answerQuantity-1] = 4;
+        }
+#else
         answerQuantity++;
-        answerDirection[answerQuantity-1] = 4;
+        answerDirection[answerQuantity-1] = 1;
+#endif // _NETWORK_GAME_
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendCorrectnessToPlayer(4, MSG_ANSWER_CORRECT());
+        networkWindowExample->sendCurrentResultsToPlayers(ui->sum1_Browser->toPlainText().toInt(),
+                                                          ui->sum2_Browser->toPlainText().toInt(),
+                                                          ui->sum3_Browser->toPlainText().toInt(),
+                                                          ui->sum4_Browser->toPlainText().toInt());
+    }
+#endif // _NETWORK_GAME_
 }
 
 void MainWindow::on_minus4Button_clicked()
@@ -247,9 +404,28 @@ void MainWindow::on_minus4Button_clicked()
         ui->plus4Button->setDisabled(true);
         ui->minus4Button->setDisabled(true);
         current_question[3] = -1;
+#ifdef _NETWORK_GAME_
+        if (!isNetworkGame)
+        {
+            answerQuantity++;
+            answerDirection[answerQuantity-1] = 4;
+        }
+#else
         answerQuantity++;
-        answerDirection[answerQuantity-1] = 4;
+        answerDirection[answerQuantity-1] = 1;
+#endif // _NETWORK_GAME_
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendCorrectnessToPlayer(4, MSG_ANSWER_INCORRECT());
+        networkWindowExample->sendCurrentResultsToPlayers(ui->sum1_Browser->toPlainText().toInt(),
+                                                          ui->sum2_Browser->toPlainText().toInt(),
+                                                          ui->sum3_Browser->toPlainText().toInt(),
+                                                          ui->sum4_Browser->toPlainText().toInt());
+        wrongAnswer();
+    }
+#endif // _NETWORK_GAME_
 }
 
 void MainWindow::on_startGameButton_clicked()
@@ -271,9 +447,18 @@ void MainWindow::on_startGameButton_clicked()
     {
         button->setDisabled(true);
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendPlayersToPlayers(ui->name1_Browser->toPlainText(),
+                                                   ui->name2_Browser->toPlainText(),
+                                                   ui->name3_Browser->toPlainText(),
+                                                   ui->name4_Browser->toPlainText());
+    }
+#endif // _NETWORK_GAME_
 
     parseQuestionsFile(&questionsFile);
-    current_stage = STAGE_BEGIN;
+    current_stage = STAGE_ABSTRACT;
     current_theme_number = 0;
 }
 
@@ -281,176 +466,129 @@ void MainWindow::on_nextQuestionButton_clicked()
 {
     switch (current_stage)
     {
-        case STAGE_BEGIN:
-            ui->answerBrowser->setText(fullPaket.abstract);
-            current_stage = STAGE_ABSTRACT;
-            break;
         case STAGE_ABSTRACT:
+            ui->answerBrowser->setText(fullPaket.abstract);
             current_stage = STAGE_THEME;
+            break;
+        case STAGE_THEME:
             if(current_theme_number < fullPaket.numThemes)
             {
                 current_theme_number++;
+                currentQuestionNumber = 0;
             }
             else
             {
                 return;
             }
+
+            if (current_theme_number > 1)
+            {
+                appendLog(protocol, current_question);
+            }
             ui->numberThemeBrowser->setText(QString::number(current_theme_number));
             ui->numberThemeBrowser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
             ui->nameThemeBrowser->setText(fullPaket.dataThemes[current_theme_number-1].title);
+            ui->valueQuestionBrowser->clear();
+            ui->questionBrowser->clear();
             ui->answerBrowser->setText(fullPaket.dataThemes[current_theme_number-1].comment);
+            current_stage = STAGE_QUESTION;
             break;
-        case STAGE_THEME:
-            current_stage = STAGE_Q10;
-            setZero(current_question);
+        case STAGE_QUESTION:
+            if (fullPaket.dataThemes[current_theme_number-1].questions[currentQuestionNumber].value != 10)
+            {
+                appendLog(protocol, current_question);
+            }
+            ui->globalTimerBrowser->clear();
+            ui->queue1Browser->clear();
+            ui->queue2Browser->clear();
+            ui->queue3Browser->clear();
+            ui->queue4Browser->clear();
+            setZero(answerDirection);
             answerQuantity = 0;
+            countWrongAnswers = 0;
+            if (!isFalstart)
+            {
+                falstart = false;
+            }
+#ifdef _NETWORK_GAME_
+            if (isNetworkGame)
+            {
+                networkWindowExample->sendTimeToPlayers(MSG_TIME_PREFFIX());
+                networkWindowExample->sendQuestionToPlayers(current_theme_number,
+                                                            fullPaket.dataThemes[current_theme_number-1].title,
+                                                            fullPaket.dataThemes[current_theme_number-1].questions[currentQuestionNumber].value,
+                                                            fullPaket.dataThemes[current_theme_number-1].questions[currentQuestionNumber].textQuestion);
+            }
+#endif // _NETWORK_GAME_
+            setZero(current_question);
+            ui->appealButton->setDisabled(true);
+            ui->startTimerButton->setEnabled(true);
             ui->answerBrowser->clear();
-            ui->valueQuestionBrowser->setText(MSG_10());
+            ui->valueQuestionBrowser->setText(QString::number(fullPaket.dataThemes[current_theme_number-1].questions[currentQuestionNumber].value));
             ui->valueQuestionBrowser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
-            ui->questionBrowser->setText(fullPaket.dataThemes[current_theme_number-1].Q10);
+            ui->questionBrowser->setText(fullPaket.dataThemes[current_theme_number-1].questions[currentQuestionNumber].textQuestion);
+            if(isQA)
+            {
+                ui->answerBrowser->setText(fullPaket.dataThemes[current_theme_number-1].questions[currentQuestionNumber].answer);
+            }
+#ifdef _NETWORK_GAME_
+            if (!isNetworkGame)
+            {
+                foreach (QPushButton *button, plus_minus_buttons)
+                {
+                    button->setEnabled(true);
+                }
+            }
+#else
             foreach (QPushButton *button, plus_minus_buttons)
             {
                 button->setEnabled(true);
             }
+#endif // _NETWORK_GAME_
+            current_stage = STAGE_ANSWER;
             break;
-        case STAGE_Q10:
-            current_stage = STAGE_A10;
-            ui->answerBrowser->setText(fullPaket.dataThemes[current_theme_number-1].A10);
+
+        case STAGE_ANSWER:
+#ifdef _NETWORK_GAME_
+            if (isNetworkGame)
+            {
+                networkWindowExample->sendTimeToPlayers(MSG_BLOCK_PREFFIX());
+            }
+#endif // _NETWORK_GAME_
+            if(!isQA)
+            {
+                ui->answerBrowser->setText(fullPaket.dataThemes[current_theme_number-1].questions[currentQuestionNumber].answer);
+            }
             ui->appealButton->setEnabled(true);
+            ui->startTimerButton->setDisabled(true);
+            falstart = true;
             foreach (QPushButton *button, plus_minus_buttons)
             {
                 button->setDisabled(true);
             }
-            break;
-        case STAGE_A10:
-            current_stage = STAGE_Q20;
-            ui->appealButton->setDisabled(true);
-            appendLog(protocol, current_question);
-            setZero(current_question);
-            answerQuantity = 0;
-            ui->answerBrowser->clear();
-            ui->valueQuestionBrowser->setText(MSG_20());
-            ui->valueQuestionBrowser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
-            ui->questionBrowser->setText(fullPaket.dataThemes[current_theme_number-1].Q20);
-            foreach (QPushButton *button, plus_minus_buttons)
+            if (fullPaket.dataThemes[current_theme_number-1].questions[currentQuestionNumber].value != 50)
             {
-                button->setEnabled(true);
-            }
-            break;
-        case STAGE_Q20:
-            current_stage = STAGE_A20;
-            ui->answerBrowser->setText(fullPaket.dataThemes[current_theme_number-1].A20);
-            ui->appealButton->setEnabled(true);
-            foreach (QPushButton *button, plus_minus_buttons)
-            {
-                button->setDisabled(true);
-            }
-            break;
-        case STAGE_A20:
-            current_stage = STAGE_Q30;
-            ui->appealButton->setDisabled(true);
-            appendLog(protocol, current_question);
-            setZero(current_question);
-            answerQuantity = 0;
-            ui->answerBrowser->clear();
-            ui->valueQuestionBrowser->setText(MSG_30());
-            ui->valueQuestionBrowser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
-            ui->questionBrowser->setText(fullPaket.dataThemes[current_theme_number-1].Q30);
-            foreach (QPushButton *button, plus_minus_buttons)
-            {
-                button->setEnabled(true);
-            }
-            break;
-        case STAGE_Q30:
-            current_stage = STAGE_A30;
-            ui->answerBrowser->setText(fullPaket.dataThemes[current_theme_number-1].A30);
-            ui->appealButton->setEnabled(true);
-            foreach (QPushButton *button, plus_minus_buttons)
-            {
-                button->setDisabled(true);
-            }
-            break;
-        case STAGE_A30:
-            current_stage = STAGE_Q40;
-            ui->appealButton->setDisabled(true);
-            appendLog(protocol, current_question);
-            setZero(current_question);
-            answerQuantity = 0;
-            ui->answerBrowser->clear();
-            ui->valueQuestionBrowser->setText(MSG_40());
-            ui->valueQuestionBrowser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
-            ui->questionBrowser->setText(fullPaket.dataThemes[current_theme_number-1].Q40);
-            foreach (QPushButton *button, plus_minus_buttons)
-            {
-                button->setEnabled(true);
-            }
-            break;
-        case STAGE_Q40:
-            current_stage = STAGE_A40;
-            ui->answerBrowser->setText(fullPaket.dataThemes[current_theme_number-1].A40);
-            ui->appealButton->setEnabled(true);
-            foreach (QPushButton *button, plus_minus_buttons)
-            {
-                button->setDisabled(true);
-            }
-            break;
-        case STAGE_A40:
-            current_stage = STAGE_Q50;
-            ui->appealButton->setDisabled(true);
-            appendLog(protocol, current_question);
-            setZero(current_question);
-            answerQuantity = 0;
-            ui->answerBrowser->clear();
-            ui->valueQuestionBrowser->setText(MSG_50());
-            ui->valueQuestionBrowser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
-            ui->questionBrowser->setText(fullPaket.dataThemes[current_theme_number-1].Q50);
-            foreach (QPushButton *button, plus_minus_buttons)
-            {
-                button->setEnabled(true);
-            }
-            break;
-        case STAGE_Q50:
-            current_stage = STAGE_A50;
-            ui->answerBrowser->setText(fullPaket.dataThemes[current_theme_number-1].A50);
-            ui->appealButton->setEnabled(true);
-            foreach (QPushButton *button, plus_minus_buttons)
-            {
-                button->setDisabled(true);
-            }
-            break;
-        case STAGE_A50:
-            ui->appealButton->setDisabled(true);
-            appendLog(protocol, current_question);
-            if (current_theme_number == fullPaket.numThemes)
-            {
-                current_stage = STAGE_FINISH;
-                ui->numberThemeBrowser->clear();
-                ui->nameThemeBrowser->clear();
-                ui->valueQuestionBrowser->clear();
-                ui->questionBrowser->clear();
-                ui->answerBrowser->clear();
-                QMessageBox::information(NULL, MSG_INFO(), MSG_THEMES_OVER());
+                currentQuestionNumber++;
+                current_stage = STAGE_QUESTION;
             }
             else
             {
-                current_stage = STAGE_THEME;
-                ui->valueQuestionBrowser->clear();
-                ui->questionBrowser->clear();
-                if(current_theme_number < fullPaket.numThemes)
+                if (current_theme_number == fullPaket.numThemes)
                 {
-                    current_theme_number++;
+                    current_stage = STAGE_FINISH;
                 }
                 else
                 {
-                    return;
+                    current_stage = STAGE_THEME;
                 }
-                ui->numberThemeBrowser->setText(QString::number(current_theme_number));
-                ui->numberThemeBrowser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
-                ui->nameThemeBrowser->setText(fullPaket.dataThemes[current_theme_number-1].title);
-                ui->answerBrowser->setText(fullPaket.dataThemes[current_theme_number-1].comment);
             }
             break;
         case STAGE_FINISH:
+            ui->numberThemeBrowser->clear();
+            ui->nameThemeBrowser->clear();
+            ui->valueQuestionBrowser->clear();
+            ui->questionBrowser->clear();
+            ui->answerBrowser->clear();
             QMessageBox::information(NULL, MSG_INFO(), MSG_THEMES_OVER());
             break;
     }
@@ -490,9 +628,36 @@ void MainWindow::on_finishGameButton_clicked()
         exportFile.write("\n");
     }
     exportFile.close();
+
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->show();
+        networkWindowExample->raise();
+    }
+#endif // _NETWORK_GAME_
     QMessageBox::information(NULL, MSG_INFO(), MSG_GAME_OVER());
     setGraphics();
 }
+
+void MainWindow::on_startTimerButton_clicked()
+{
+    waitSignalTimer.start(maxWaitSignal*1000);
+    if (isFalstart)
+    {
+        falstart = false;
+    }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendTimeToPlayers(MSG_TIME_PREFFIX());
+    }
+#endif // _NETWORK_GAME_
+    ui->globalTimerBrowser->setText(QString::number(waitSignalTimer.remainingTime()/1000)  + " секунд");
+    ui->globalTimerBrowser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
+    QTimer::singleShot(1000, this, SLOT(updateGlobalTimer()));
+}
+
 
 void MainWindow::on_exitButton_clicked()
 {
@@ -531,7 +696,31 @@ void MainWindow::setGraphics()
     ui->settingsButton->setEnabled(true);
     ui->nextQuestionButton->setDisabled(true);
     ui->appealButton->setDisabled(true);
+    ui->startTimerButton->setDisabled(true);
     ui->finishGameButton->setDisabled(true);
+    ui->name1_Browser->setStyleSheet("background-color: red");
+    ui->name2_Browser->setStyleSheet("background-color: green");
+    ui->name3_Browser->setStyleSheet("background-color: yellow");
+    ui->name4_Browser->setStyleSheet("background-color: blue");
+#ifndef _NETWORK_GAME_
+    ui->queue1Label->setVisible(false);
+    ui->queue2Label->setVisible(false);
+    ui->queue3Label->setVisible(false);
+    ui->queue4Label->setVisible(false);
+    ui->queue1Browser->setVisible(false);
+    ui->queue2Browser->setVisible(false);
+    ui->queue3Browser->setVisible(false);
+    ui->queue4Browser->setVisible(false);
+    ui->timerP1Label->setVisible(false);
+    ui->timerP1Label->setVisible(false);
+    ui->timerP2Label->setVisible(false);
+    ui->timerP3Label->setVisible(false);
+    ui->timerP4Label->setVisible(false);
+    ui->timerP1Browser->setVisible(false);
+    ui->timerP2Browser->setVisible(false);
+    ui->timerP3Browser->setVisible(false);
+    ui->timerP4Browser->setVisible(false);
+#endif // _NETWORK_GAME_
 }
 
 void MainWindow::parseQuestionsFile(QFile *file)
@@ -596,83 +785,88 @@ void MainWindow::parseQuestionsFile(QFile *file)
             }
         }
 
-        fullPaket.dataThemes[iter].Q10 += readData;
+        fullPaket.dataThemes[iter].questions[0].value = 10;
+        fullPaket.dataThemes[iter].questions[0].textQuestion += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_ANSWER())) //пока не ответ, читаем 10
         {
-            fullPaket.dataThemes[iter].Q10 += readData;
+            fullPaket.dataThemes[iter].questions[0].textQuestion += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
-        fullPaket.dataThemes[iter].A10 += readData;
+        fullPaket.dataThemes[iter].questions[0].answer += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_20())) //пока не 20, читаем ответ 10
         {
-            fullPaket.dataThemes[iter].A10 += readData;
+            fullPaket.dataThemes[iter].questions[0].answer += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
-        fullPaket.dataThemes[iter].Q20 += readData;
+        fullPaket.dataThemes[iter].questions[1].value = 20;
+        fullPaket.dataThemes[iter].questions[1].textQuestion += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_ANSWER())) //пока не ответ, читаем 20
         {
-            fullPaket.dataThemes[iter].Q20 += readData;
+            fullPaket.dataThemes[iter].questions[1].textQuestion += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
-        fullPaket.dataThemes[iter].A20 += readData;
+        fullPaket.dataThemes[iter].questions[1].answer += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_30())) //пока не 30, читаем ответ 20
         {
-            fullPaket.dataThemes[iter].A20 += readData;
+            fullPaket.dataThemes[iter].questions[1].answer += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
-        fullPaket.dataThemes[iter].Q30 += readData;
+        fullPaket.dataThemes[iter].questions[2].value = 30;
+        fullPaket.dataThemes[iter].questions[2].textQuestion += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_ANSWER())) //пока не ответ, читаем 30
         {
-            fullPaket.dataThemes[iter].Q30 += readData;
+            fullPaket.dataThemes[iter].questions[2].textQuestion += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
-        fullPaket.dataThemes[iter].A30 += readData;
+        fullPaket.dataThemes[iter].questions[2].answer += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_40())) //пока не 40, читаем ответ 30
         {
-            fullPaket.dataThemes[iter].A30 += readData;
+            fullPaket.dataThemes[iter].questions[2].answer += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
-        fullPaket.dataThemes[iter].Q40 += readData;
+        fullPaket.dataThemes[iter].questions[3].value = 40;
+        fullPaket.dataThemes[iter].questions[3].textQuestion += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_ANSWER())) //пока не ответ, читаем 40
         {
-            fullPaket.dataThemes[iter].Q40 += readData;
+            fullPaket.dataThemes[iter].questions[3].textQuestion += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
-        fullPaket.dataThemes[iter].A40 += readData;
+        fullPaket.dataThemes[iter].questions[3].answer += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_50())) //пока не 50, читаем ответ 40
         {
-            fullPaket.dataThemes[iter].A40 += readData;
+            fullPaket.dataThemes[iter].questions[3].answer += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
-        fullPaket.dataThemes[iter].Q50 += readData;
+        fullPaket.dataThemes[iter].questions[4].value = 50;
+        fullPaket.dataThemes[iter].questions[4].textQuestion += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_ANSWER())) //пока не ответ, читаем 50
         {
-            fullPaket.dataThemes[iter].Q50 += readData;
+            fullPaket.dataThemes[iter].questions[4].textQuestion += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
-        fullPaket.dataThemes[iter].A50 += readData;
+        fullPaket.dataThemes[iter].questions[4].answer += readData;
         readData = QString::fromUtf8(file->readLine());
         while (!readData.startsWith(MSG_THEME()) && !file->atEnd()) //пока не новая тема или не конец файла, читаем ответ 50
         {
-            fullPaket.dataThemes[iter].A50 += readData;
+            fullPaket.dataThemes[iter].questions[4].answer += readData;
             readData = QString::fromUtf8(file->readLine());
         }
 
@@ -743,6 +937,24 @@ void MainWindow::appeal_apply(int type, int numPlayer)
         case 1:
             for (unsigned int i=0; i<4; i++)
             {
+                if(answerDirection[i] == numPlayer)
+                {
+                    for (unsigned int j=i; j<4; j++)
+                    {
+                        if (answerDirection[j] > 0)
+                        {
+                            updateDisplay(answerDirection[j], current_question[answerDirection[j] - 1]);
+                            current_question[answerDirection[j] - 1]=0;
+                        }
+                    }
+                }
+            }
+            current_question[numPlayer-1] = -1;
+            updateDisplay(numPlayer, 1);
+            break;
+        case 2:
+            for (unsigned int i=0; i<4; i++)
+            {
                 updateDisplay(i+1, current_question[i]);
                 current_question[i] = 0;
             }
@@ -774,7 +986,61 @@ void MainWindow::appeal_reject(int numPlayer)
 
 void MainWindow::setSettings()
 {
-    ui->name1_Browser->setText(settingsWindowExample->player1_name);
+#ifdef _NETWORK_GAME_
+    isNetworkGame = settingsWindowExample->isNetworkGame;
+    if (!isNetworkGame)
+    {
+        ui->name1_Browser->setText(settingsWindowExample->player1_name);
+        ui->name2_Browser->setText(settingsWindowExample->player2_name);
+        ui->name3_Browser->setText(settingsWindowExample->player3_name);
+        ui->name4_Browser->setText(settingsWindowExample->player4_name);
+    }
+    else
+    {
+        if (!networkWindowExample->playersList[0].name.isEmpty())
+        {
+            ui->name1_Browser->setText(networkWindowExample->playersList[0].name);
+        }
+        else
+        {
+            ui->name1_Browser->clear();
+        }
+
+        if (!networkWindowExample->playersList[1].name.isEmpty())
+        {
+            ui->name2_Browser->setText(networkWindowExample->playersList[1].name);
+        }
+        else
+        {
+            ui->name2_Browser->clear();
+        }
+
+        if (!networkWindowExample->playersList[2].name.isEmpty())
+        {
+            ui->name3_Browser->setText(networkWindowExample->playersList[2].name);
+        }
+        else
+        {
+            ui->name3_Browser->clear();
+        }
+
+        if (!networkWindowExample->playersList[3].name.isEmpty())
+        {
+            ui->name4_Browser->setText(networkWindowExample->playersList[3].name);
+        }
+        else
+        {
+            ui->name4_Browser->clear();
+        }
+
+        isAnswerInwriting = networkWindowExample->isAnswerInwritting;
+    }
+#else
+    ui->name2_Browser->setText(settingsWindowExample->player2_name);
+    ui->name3_Browser->setText(settingsWindowExample->player3_name);
+    ui->name4_Browser->setText(settingsWindowExample->player4_name);
+#endif // _NETWORK_GAME_
+
     ui->name1_Browser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
     if (ui->name1_Browser->toPlainText().isEmpty())
     {
@@ -786,7 +1052,6 @@ void MainWindow::setSettings()
         playersQuantity++;
     }
 
-    ui->name2_Browser->setText(settingsWindowExample->player2_name);
     ui->name2_Browser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
     if (ui->name2_Browser->toPlainText().isEmpty())
     {
@@ -798,7 +1063,6 @@ void MainWindow::setSettings()
         playersQuantity++;
     }
 
-    ui->name3_Browser->setText(settingsWindowExample->player3_name);
     ui->name3_Browser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
     if (ui->name3_Browser->toPlainText().isEmpty())
     {
@@ -810,7 +1074,6 @@ void MainWindow::setSettings()
         playersQuantity++;
     }
 
-    ui->name4_Browser->setText(settingsWindowExample->player4_name);
     ui->name4_Browser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
     if (ui->name4_Browser->toPlainText().isEmpty())
     {
@@ -834,6 +1097,12 @@ void MainWindow::setSettings()
             appealsUsersQuantity[i] = 0;
         }
     }
+
+    maxWaitSignal = settingsWindowExample->waitingSignal;
+    maxWaitAnswer = settingsWindowExample->waitingAnswer;
+    isResignal = settingsWindowExample->isResignal;
+    isFalstart = settingsWindowExample->isFalstart;
+    isQA = settingsWindowExample->isQA;
 }
 
 void MainWindow::updateDisplay(int usernum, int old_value)
@@ -888,4 +1157,188 @@ void MainWindow::updateDisplay(int usernum, int old_value)
             ui->sum4_Browser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
             break;
     }
+#ifdef _NETWORK_GAME_
+    if (isNetworkGame)
+    {
+        networkWindowExample->sendCurrentResultsToPlayers(ui->sum1_Browser->toPlainText().toInt(),
+                                                          ui->sum2_Browser->toPlainText().toInt(),
+                                                          ui->sum3_Browser->toPlainText().toInt(),
+                                                          ui->sum4_Browser->toPlainText().toInt());
+    }
+#endif // _NETWORK_GAME_
 }
+
+void MainWindow::updateGlobalTimer()
+{
+    int secondsToTimeout = waitSignalTimer.remainingTime();
+    if(secondsToTimeout > 0)
+    {
+        ui->globalTimerBrowser->setText(QString::number(secondsToTimeout/1000) + " секунд");
+        ui->globalTimerBrowser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
+        QTimer::singleShot(1000, this, SLOT(updateGlobalTimer()));
+    }
+}
+
+void MainWindow::signalTimeout()
+{
+    waitSignalTimer.stop();
+#ifdef _NETWORK_GAME_
+    if(isNetworkGame)
+    {
+        networkWindowExample->sendTimeoutToPlayers();
+        on_nextQuestionButton_clicked();
+    }
+#endif // _NETWORK_GAME_
+    ui->globalTimerBrowser->clear();
+}
+
+#ifdef _NETWORK_GAME_
+void MainWindow::newAnswer(int playerNumber)
+{
+    for (unsigned i=0; i<4; i++)
+    {
+        if(answerDirection[i] == playerNumber) // если ты уже отвечал, то больше отвечать не можешь
+        {
+            networkWindowExample->sendQueueToPlayer(playerNumber, 0);
+            return;
+        }
+    }
+    waitSignalTimer.stop();
+    if(falstart)
+    {
+        networkWindowExample->sendCorrectnessToPlayer(playerNumber, MSG_FALSTART());
+    }
+    else
+    {
+        answerQuantity++;
+        answerDirection[answerQuantity-1] = playerNumber;
+        if (answerQuantity <= 4)
+        {
+            networkWindowExample->sendQueueToPlayer(playerNumber, answerQuantity);
+            switch (playerNumber)
+            {
+                case 0:
+                    return;
+                    break;
+                case 1:
+                    ui->queue1Browser->setText(QString::number(answerQuantity));
+                    ui->queue1Browser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
+                    break;
+                case 2:
+                    ui->queue2Browser->setText(QString::number(answerQuantity));
+                    ui->queue2Browser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
+                    break;
+                case 3:
+                    ui->queue3Browser->setText(QString::number(answerQuantity));
+                    ui->queue2Browser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
+                    break;
+                case 4:
+                    ui->queue4Browser->setText(QString::number(answerQuantity));
+                    ui->queue4Browser->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
+                    break;
+            }
+        }
+        else
+        {
+            return;
+        }
+    }
+    if (answerQuantity == 1)
+    {
+        switch (playerNumber)
+        {
+            case 0:
+                return;
+                break;
+            case 1:
+                ui->player1Box->setEnabled(true);
+                ui->plus1Button->setEnabled(true);
+                ui->minus1Button->setEnabled(true);
+                break;
+            case 2:
+                ui->player2Box->setEnabled(true);
+                ui->plus2Button->setEnabled(true);
+                ui->minus2Button->setEnabled(true);
+                break;
+            case 3:
+                ui->player3Box->setEnabled(true);
+                ui->plus3Button->setEnabled(true);
+                ui->minus3Button->setEnabled(true);
+                break;
+            case 4:
+                ui->player4Box->setEnabled(true);
+                ui->plus4Button->setEnabled(true);
+                ui->minus4Button->setEnabled(true);
+                break;
+        }
+    }
+}
+#endif // _NETWORK_GAME_
+
+#ifdef _NETWORK_GAME_
+void MainWindow::wrongAnswer()
+{
+    if (answerQuantity < 4)
+    {
+        countWrongAnswers++;
+        if (isResignal)
+        {
+            networkWindowExample->sendTimeToPlayers(MSG_TIME_PREFFIX());
+            answerQuantity = 0;
+            if(isFalstart) // перезапускаем таймер, если игра с переотбивками и с фальстартами. Без ф/с и п/о всё вручную
+            {
+                waitSignalTimer.start(maxWaitSignal*1000);
+            }
+        }
+        else
+        {
+            switch (answerDirection[countWrongAnswers]) //смотрим следующего в очереди на ответ
+            {
+                case 0: // никого нет. Ждём отбивок дальше
+                    waitSignalTimer.start(maxWaitSignal*1000);
+                    break;
+                case 1:
+                    networkWindowExample->sendQueueToPlayer(1, 1);
+                    ui->plus1Button->setEnabled(true);
+                    ui->minus1Button->setEnabled(true);
+                    break;
+                case 2:
+                    networkWindowExample->sendQueueToPlayer(2, 1);
+                    ui->plus2Button->setEnabled(true);
+                    ui->minus2Button->setEnabled(true);
+                    break;
+                case 3:
+                    networkWindowExample->sendQueueToPlayer(3, 1);
+                    ui->plus3Button->setEnabled(true);
+                    ui->minus3Button->setEnabled(true);
+                    break;
+                case 4:
+                    networkWindowExample->sendQueueToPlayer(4, 1);
+                    ui->plus4Button->setEnabled(true);
+                    ui->minus4Button->setEnabled(true);
+                    break;
+            }
+
+            if (answerDirection[answerQuantity] != 0)
+            {
+                networkWindowExample->sendQueueToPlayer(1, 1);
+                ui->player1Box->setEnabled(true);
+            }
+        }
+    }
+    else
+    {
+        return;
+    }
+}
+#endif // _NETWORK_GAME_
+
+#ifdef _NETWORK_GAME_
+void MainWindow::textAnswer(QString answer)
+{
+    if (isAnswerInwriting)
+    {
+        QMessageBox::information(NULL, MSG_INFO(), answer);
+    }
+}
+#endif // _NETWORK_GAME_

@@ -21,11 +21,22 @@ public:
     QString player2_name;
     QString player3_name;
     QString player4_name;
+#ifdef _NETWORK_GAME_
+    bool isNetworkGame;
+#endif // _NETWORK_GAME_
     bool isAppealsLimited;
     int appealsQuantity;
+    int shootingThemesQuantity;
+    int oShootingThemesQuantity;
+    int waitingSignal;
+    int waitingAnswer;
+    bool isResignal;
+    bool isFalstart;
+    bool isQA;
 
 signals:
     void settingsIsSet();
+    void startServer();
 
 private slots:
     void on_applyButton_clicked();

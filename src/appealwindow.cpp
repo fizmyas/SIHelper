@@ -24,9 +24,13 @@ void AppealWindow::on_applyButton_clicked()
     {
         emit appeal_apply(APPEAL_ACCEPT_ANSWER, ui->appealerNumberSpinBox->value());
     }
+    else if (ui->removeButton->isChecked())
+    {
+        emit appeal_apply(APPEAL_REMOVE_QUESTION, ui->appealerNumberSpinBox->value());
+    }
     else
     {
-        emit appeal_apply(APPEAL_REJECT_QUESTION, ui->appealerNumberSpinBox->value());
+        emit appeal_apply(APPEAL_REJECT_ANSWER, ui->appealerNumberSpinBox->value());
     }
     close();
 }

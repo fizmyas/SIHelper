@@ -139,6 +139,31 @@ namespace mainwindowStrings
     {
         return QString::fromUtf8("0");
     }
+
+    QString MSG_ANSWER_CORRECT()
+    {
+        return QString::fromUtf8("Верно!");
+    }
+
+    QString MSG_ANSWER_INCORRECT()
+    {
+        return QString::fromUtf8("Неверно!");
+    }
+
+    QString MSG_FALSTART()
+    {
+        return QString::fromUtf8("Фальстарт!");
+    }
+
+    QString MSG_TIME_PREFFIX()
+    {
+        return QString::fromUtf8("Время!");
+    }
+
+    QString MSG_BLOCK_PREFFIX()
+    {
+        return QString::fromUtf8("Block:#");
+    }
 }
 
 #endif // STRINGS_MAINWINDOW_H

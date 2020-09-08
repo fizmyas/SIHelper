@@ -30,7 +30,8 @@ private:
     enum appealType
     {
         APPEAL_ACCEPT_ANSWER = 0,
-        APPEAL_REJECT_QUESTION
+        APPEAL_REJECT_ANSWER,
+        APPEAL_REMOVE_QUESTION
     };
 };
 
